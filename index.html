@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Crossy Road</title>
+    <style>
+        @font-face {
+            font-family: 'Pixeloid';
+            src: url('PixeloidSans-mLxMm.ttf') format('truetype');
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #87CEEB;
+        }
+        canvas {
+            display: block;
+            background: url('road.png') repeat-y center;
+            background-size: cover;
+            width: 800px;
+            height: 600px;
+        }
+        .score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Pixeloid', sans-serif;
+            color: white;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="score">Time Survived: <span id="score">0</span> seconds</div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        const playerImg = new Image();
+        const carLeftImg = new Image();
+        const carRightImg = new Image();
+        const truckImg = new Image();
+        playerImg.src = 'chicken.png'; 
+        carLeftImg.src = 'car_left.png'; 
+        carRightImg.src = 'car_right.png';
+        truckImg.src = 'truck.png'; 
+        
+        const player = { x: canvas.width / 2 - 15, y: canvas.height / 2 - 15, width: 30, height: 30 };
+        let obstacles = [];
+        let score = 0;
+        let gameRunning = true;
+        let speedMultiplier = 1;
+        
+        const lanes = [75, 175, 275, 375, 475]; 
+        let laneVehicles = {};
+        lanes.forEach(lane => laneVehicles[lane] = []);
+
+        function spawnObstacle() {
+            const lane = lanes[Math.floor(Math.random() * lanes.length)];
+            const type = Math.random() > 0.5 ? 'car' : 'truck';
+            const width = type === 'car' ? 80 : 120;
+            const height = type === 'car' ? 40 : 50;
+            const movingLeft = lane % 2 === 0; 
+            const speed = (movingLeft ? -1 : 1) * (type === 'car' ? (2 + Math.random() * 1.5) * speedMultiplier : (1.5 + Math.random() * 1.5) * speedMultiplier);
+            
+            if (laneVehicles[lane] && laneVehicles[lane].length > 0) {
+                const lastVehicle = laneVehicles[lane][laneVehicles[lane].length - 1];
+                if ((movingLeft && lastVehicle.x > 250) || (!movingLeft && lastVehicle.x < canvas.width - 250)) return;
+            }
+            
+            const obstacle = {
+                x: movingLeft ? canvas.width : -150,
+                y: lane,
+                width,
+                height,
+                speed,
+                img: movingLeft ? carLeftImg : carRightImg
+            };
+            obstacles.push(obstacle);
+            laneVehicles[lane].push(obstacle);
+        }
+        
+        setInterval(() => { if (gameRunning) spawnObstacle(); }, 1500);
+        setInterval(() => { if (gameRunning) speedMultiplier += 0.1; }, 5000);
+        
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "w" && player.y > 0) player.y -= 30;
+            if (e.key === "s" && player.y < canvas.height - player.height) player.y += 30;
+            if (e.key === "a" && player.x > 0) player.x -= 30;
+            if (e.key === "d" && player.x < canvas.width - player.width) player.x += 30;
+        });
+        
+        function checkCollision(a, b) {
+            return (
+                (a.x + 8) < (b.x + b.width - 8) &&
+                (a.x + a.width - 8) > (b.x + 8) &&
+                (a.y + 5) < (b.y + b.height - 5) &&
+                (a.y + a.height - 5) > (b.y + 5)
+            );
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            obstacles = obstacles.filter(obstacle => {
+                obstacle.x += obstacle.speed;
+                ctx.drawImage(obstacle.img, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                
+                if (checkCollision(player, obstacle)) {
+                    gameRunning = false;
+                    alert("Game Over! You survived for " + score + " seconds.");
+                    location.reload();
+                }
+                
+                if (obstacle.x > -150 && obstacle.x < canvas.width + 150) {
+                    return true;
+                } else {
+                    laneVehicles[obstacle.y] = laneVehicles[obstacle.y].filter(v => v !== obstacle);
+                    return false;
+                }
+            });
+            
+            ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+            requestAnimationFrame(update);
+        }
+        
+        setInterval(() => { if (gameRunning) { score++; document.getElementById("score").innerText = score; }}, 1000);
+        update();
+    </script>
+</body>
+</html>
